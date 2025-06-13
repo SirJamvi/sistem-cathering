@@ -3,32 +3,31 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\DaftarKaryawanRequest;
+use App\Http\Requests\EditKaryawanRequest;
 use App\Models\Divisi;
 use App\Models\Karyawan;
 use App\Models\Shift;
-use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Jobs\KirimEmailAkun;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class ManajemenSistemController extends Controller
 {
-    // --- MANAJEMEN KARYAWAN ---
-
     /**
      * Menampilkan daftar semua karyawan.
      */
-    public function indexKaryawan()
+    public function index()
     {
-        $karyawan = Karyawan::with(['user', 'divisi', 'shift'])->paginate(15);
+        $karyawan = Karyawan::with(['divisi', 'shift'])->latest()->paginate(15);
         return view('hrga.manajemen.karyawan.index', compact('karyawan'));
     }
 
     /**
      * Menampilkan form untuk membuat karyawan baru.
      */
-    public function createKaryawan()
+    public function create()
     {
         $divisi = Divisi::where('is_active', true)->get();
         $shifts = Shift::where('is_active', true)->get();
@@ -38,54 +37,75 @@ class ManajemenSistemController extends Controller
     /**
      * Menyimpan data karyawan baru ke database.
      */
-    public function storeKaryawan(Request $request)
+    public function store(DaftarKaryawanRequest $request)
     {
-        $request->validate([
-            'nama_lengkap' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email',
-            'nip' => 'required|string|max:255|unique:karyawans,nip',
-            'divisi_id' => 'required|exists:divisis,id',
-            'shift_id' => 'required|exists:shifts,id',
-            'tanggal_bergabung' => 'required|date',
-            'phone' => 'nullable|string'
-        ]);
-
+        $validatedData = $request->validated();
         $password = Str::random(8);
 
-        DB::transaction(function () use ($request, $password) {
-            // 1. Buat data user
-            $user = User::create([
-                'name' => $request->nama_lengkap,
-                'email' => $request->email,
+        $user = DB::transaction(function () use ($validatedData, $password) {
+            $user = \App\Models\User::create([
+                'name' => $validatedData['nama_lengkap'],
+                'email' => $validatedData['email'],
                 'password' => Hash::make($password)
             ]);
-
-            // 2. Berikan role 'karyawan'
             $user->assignRole('karyawan');
-
-            // 3. Buat data karyawan
-            Karyawan::create([
-                'user_id' => $user->id,
-                'nama_lengkap' => $request->nama_lengkap,
-                'email' => $request->email,
-                'nip' => $request->nip,
-                'divisi_id' => $request->divisi_id,
-                'shift_id' => $request->shift_id,
-                'tanggal_bergabung' => $request->tanggal_bergabung,
-                'phone' => $request->phone,
-                'status_kerja' => 'aktif',
-                'berhak_konsumsi' => true
-            ]);
-
-            // Di sini Anda bisa menambahkan job untuk mengirim email berisi password ke user 
-            // dispatch(new \App\Jobs\SendUserCredentialsJob($user, $password));
+            $karyawan = $user->karyawan()->create($validatedData);
+            return $user;
         });
 
-        return redirect()->route('hrga.manajemen.karyawan.index')->with('success', 'Karyawan berhasil ditambahkan.');
-    }
-    
-    // Method edit, update, dan destroy untuk karyawan bisa ditambahkan di sini
-    // dengan logika yang serupa.
+        KirimEmailAkun::dispatch($user, $password);
 
-    // --- Method untuk manajemen VENDOR, SHIFT, dan DIVISI bisa ditambahkan di bawah ---
+        return redirect()->route('hrga.manajemen.karyawan.index')->with('success', 'Karyawan baru berhasil ditambahkan.');
+    }
+
+    /**
+     * Menampilkan detail satu karyawan.
+     */
+    public function show(Karyawan $karyawan)
+    {
+        return view('hrga.manajemen.karyawan.show', compact('karyawan'));
+    }
+
+    /**
+     * Menampilkan form untuk mengedit karyawan.
+     */
+    public function edit(Karyawan $karyawan)
+    {
+        $divisi = Divisi::where('is_active', true)->get();
+        $shifts = Shift::where('is_active', true)->get();
+        return view('hrga.manajemen.karyawan.edit', compact('karyawan', 'divisi', 'shifts'));
+    }
+
+    /**
+     * Memperbarui data karyawan di database.
+     */
+    public function update(EditKaryawanRequest $request, Karyawan $karyawan)
+    {
+        $validatedData = $request->validated();
+
+        DB::transaction(function () use ($validatedData, $karyawan) {
+            $karyawan->user->update([
+                'name' => $validatedData['nama_lengkap'],
+                'email' => $validatedData['email'],
+            ]);
+            $karyawan->update($validatedData);
+        });
+        
+        return redirect()->route('hrga.manajemen.karyawan.index')->with('success', 'Data karyawan berhasil diperbarui.');
+    }
+
+    /**
+     * Menghapus data karyawan dari database.
+     */
+    public function destroy(Karyawan $karyawan)
+    {
+        try {
+            // Foreign key di database sudah diatur 'ON DELETE CASCADE',
+            // jadi saat user dihapus, data karyawan juga akan terhapus.
+            $karyawan->user->delete();
+            return redirect()->route('hrga.manajemen.karyawan.index')->with('success', 'Data karyawan berhasil dihapus.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal menghapus data karyawan. Error: ' . $e->getMessage());
+        }
+    }
 }

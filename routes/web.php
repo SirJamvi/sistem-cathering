@@ -10,6 +10,9 @@ use App\Http\Controllers\Web\DashboardKokiController;
 use App\Http\Controllers\Web\LaporanWebController;
 use App\Http\Controllers\Web\ManajemenSistemController;
 use App\Http\Controllers\Web\MonitoringController;
+use App\Http\Controllers\Web\PesananWebController;
+use App\Http\Controllers\Web\ShiftWebController;
+use App\Http\Controllers\Web\VendorWebController;
 
 // Rute utama yang "pintar"
 Route::get('/', function () {
@@ -47,11 +50,14 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/monitoring/konsumsi', [MonitoringController::class, 'konsumsiHarian'])->name('monitoring.konsumsi');
         
         // Grup untuk manajemen sistem
-        Route::prefix('manajemen')->name('manajemen.')->group(function() {
-            Route::get('/karyawan', [ManajemenSistemController::class, 'indexKaryawan'])->name('karyawan.index');
-            Route::get('/karyawan/create', [ManajemenSistemController::class, 'createKaryawan'])->name('karyawan.create');
-            Route::post('/karyawan', [ManajemenSistemController::class, 'storeKaryawan'])->name('karyawan.store');
+       Route::prefix('manajemen')->name('manajemen.')->group(function() {
+    // Ganti 3 baris lama dengan 1 baris ini
+    Route::resource('karyawan', ManajemenSistemController::class);
+    Route::resource('shift', ShiftWebController::class);
+    Route::resource('vendor', VendorWebController::class);
+
         });
+         Route::resource('pesanan', PesananWebController::class)->only(['index', 'create', 'store', 'show']);
     });
 
     // === RUTE DASHBOARD KOKI ===

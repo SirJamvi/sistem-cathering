@@ -36,6 +36,9 @@
                                     </a>
                                     <ul class="dropdown-menu">
                                         <li><a class="dropdown-item" href="{{ route('hrga.manajemen.karyawan.index') }}">Data Karyawan</a></li>
+                                         <li><a class="dropdown-item" href="{{ route('hrga.pesanan.index') }}">Pesanan Makanan</a></li>
+                                         <li><a class="dropdown-item" href="{{ route('hrga.manajemen.shift.index') }}">Manajemen Shift</a></li>
+                                         <li><a class="dropdown-item" href="{{ route('hrga.manajemen.vendor.index') }}">Manajemen Vendor</a></li>
                                         {{-- Link manajemen lain bisa ditambahkan di sini --}}
                                     </ul>
                                 </li>
