@@ -28,7 +28,7 @@ Route::get('/', function () {
     }
 
     // Fallback jika punya role lain atau tidak ada dashboard khusus
-    return redirect('/login');
+    return redirect()->route('login');
 });
 
 // Rute untuk proses otentikasi (login & logout)
@@ -36,33 +36,48 @@ Route::get('login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('login', [AuthController::class, 'login']);
 Route::post('logout', [AuthController::class, 'logout'])->name('logout');
 
-
 // RUTE DASHBOARD WEB YANG MEMERLUKAN LOGIN
 Route::middleware(['auth'])->group(function () {
 
     // === RUTE DASHBOARD HRGA ===
-    Route::prefix('hrga-dashboard')->middleware('role:hrga')->name('hrga.')->group(function() {
-        Route::get('/', [DashboardHrgaController::class, 'index'])->name('dashboard');
-        
-        Route::get('/laporan/harian', [LaporanWebController::class, 'harian'])->name('laporan.harian');
-        Route::get('/laporan/bulanan', [LaporanWebController::class, 'bulanan'])->name('laporan.bulanan');
-        
-        Route::get('/monitoring/konsumsi', [MonitoringController::class, 'konsumsiHarian'])->name('monitoring.konsumsi');
-        
-        // Grup untuk manajemen sistem
-       Route::prefix('manajemen')->name('manajemen.')->group(function() {
-    // Ganti 3 baris lama dengan 1 baris ini
-    Route::resource('karyawan', ManajemenSistemController::class);
-    Route::resource('shift', ShiftWebController::class);
-    Route::resource('vendor', VendorWebController::class);
+    Route::prefix('hrga-dashboard')
+        ->middleware('role:hrga')
+        ->name('hrga.')
+        ->group(function () {
+            Route::get('/', [DashboardHrgaController::class, 'index'])->name('dashboard');
 
+            Route::get('/laporan/harian', [LaporanWebController::class, 'harian'])->name('laporan.harian');
+            Route::get('/laporan/bulanan', [LaporanWebController::class, 'bulanan'])->name('laporan.bulanan');
+
+            Route::get('/monitoring/konsumsi', [MonitoringController::class, 'konsumsiHarian'])->name('monitoring.konsumsi');
+
+            // Grup untuk manajemen sistem
+            Route::prefix('manajemen')->name('manajemen.')->group(function () {
+                Route::resource('karyawan', ManajemenSistemController::class);
+                Route::resource('shift', ShiftWebController::class);
+                Route::resource('vendor', VendorWebController::class);
+            });
+
+            Route::resource('pesanan', PesananWebController::class)
+                ->only(['index', 'create', 'store', 'show']);
         });
-         Route::resource('pesanan', PesananWebController::class)->only(['index', 'create', 'store', 'show']);
-    });
 
     // === RUTE DASHBOARD KOKI ===
-    Route::prefix('koki-dashboard')->middleware('role:koki')->name('koki.')->group(function() {
-        Route::get('/', [DashboardKokiController::class, 'index'])->name('dashboard');
-        Route::post('/scan', [DashboardKokiController::class, 'prosesScan'])->name('scan');
-    });
-}); 
+    Route::prefix('koki-dashboard')
+        ->middleware('role:koki')
+        ->name('koki.')
+        ->group(function () {
+            Route::get('/', [DashboardKokiController::class, 'index'])->name('dashboard');
+
+            // ✅ TERAPKAN MIDDLEWARE VALIDASI QR DI SINI
+            Route::post('/scan', [DashboardKokiController::class, 'prosesScan'])
+                ->middleware('qr.validate')
+                ->name('scan');
+
+            Route::get('/laporan', [DashboardKokiController::class, 'laporanHarian'])->name('laporan.harian');
+            Route::get('/validasi-manual', [DashboardKokiController::class, 'showManualForm'])->name('validasi.manual.form');
+            Route::post('/validasi-manual', [DashboardKokiController::class, 'prosesManual'])->name('validasi.manual.proses');
+            Route::get('/profil', [DashboardKokiController::class, 'showProfile'])->name('profil.show');
+            Route::put('/profil', [DashboardKokiController::class, 'updateProfile'])->name('profil.update');
+        });
+});

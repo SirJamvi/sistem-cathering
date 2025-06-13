@@ -23,6 +23,7 @@
                 </button>
 
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                    <!-- Left side -->
                     <ul class="navbar-nav me-auto">
                         @auth
                             @if(Auth::user()->hasRole('hrga'))
@@ -36,10 +37,9 @@
                                     </a>
                                     <ul class="dropdown-menu">
                                         <li><a class="dropdown-item" href="{{ route('hrga.manajemen.karyawan.index') }}">Data Karyawan</a></li>
-                                         <li><a class="dropdown-item" href="{{ route('hrga.pesanan.index') }}">Pesanan Makanan</a></li>
-                                         <li><a class="dropdown-item" href="{{ route('hrga.manajemen.shift.index') }}">Manajemen Shift</a></li>
-                                         <li><a class="dropdown-item" href="{{ route('hrga.manajemen.vendor.index') }}">Manajemen Vendor</a></li>
-                                        {{-- Link manajemen lain bisa ditambahkan di sini --}}
+                                        <li><a class="dropdown-item" href="{{ route('hrga.pesanan.index') }}">Pesanan Makanan</a></li>
+                                        <li><a class="dropdown-item" href="{{ route('hrga.manajemen.shift.index') }}">Manajemen Shift</a></li>
+                                        <li><a class="dropdown-item" href="{{ route('hrga.manajemen.vendor.index') }}">Manajemen Vendor</a></li>
                                     </ul>
                                 </li>
                                 <li class="nav-item dropdown">
@@ -53,16 +53,19 @@
                                         <li><a class="dropdown-item" href="{{ route('hrga.monitoring.konsumsi') }}">Monitoring Konsumsi</a></li>
                                     </ul>
                                 </li>
-
                             @elseif(Auth::user()->hasRole('koki'))
                                 {{-- MENU UNTUK KOKI --}}
                                 <li class="nav-item">
                                     <a class="nav-link {{ request()->routeIs('koki.dashboard') ? 'active' : '' }}" href="{{ route('koki.dashboard') }}">Dashboard Koki</a>
                                 </li>
+                                <li class="nav-item">
+                                    <a class="nav-link {{ request()->routeIs('koki.laporan.harian') ? 'active' : '' }}" href="{{ route('koki.laporan.harian') }}">Laporan Scan Harian</a>
+                                </li>
                             @endif
                         @endauth
                     </ul>
 
+                    <!-- Right side -->
                     <ul class="navbar-nav ms-auto">
                         @guest
                             <li class="nav-item">
@@ -74,6 +77,12 @@
                                     {{ Auth::user()->name }}
                                 </a>
                                 <div class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                                    {{-- ✅ TAMBAHKAN LOGIKA INI --}}
+                                    @if(Auth::user()->hasRole('koki'))
+                                        <a class="dropdown-item" href="{{ route('koki.profil.show') }}">Profil Saya</a>
+                                        <hr class="dropdown-divider">
+                                    @endif
+
                                     <a class="dropdown-item" href="{{ route('logout') }}"
                                        onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                                         Logout
