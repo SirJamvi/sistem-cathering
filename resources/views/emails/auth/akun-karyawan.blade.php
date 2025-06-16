@@ -25,13 +25,13 @@
             
             <div class="credentials">
                 <p><strong>Email:</strong> {{ $email }}</p>
-                <p><strong>Password Sementara:</strong> {{ $passwordSementara }}</p>
+                {{-- Password dihapus untuk keamanan --}}
             </div>
 
-            <p>Kami sarankan Anda untuk segera mengganti password setelah login pertama kali.</p>
+            <p>Password Anda adalah yang telah diatur oleh tim HRGA saat pendaftaran. Silakan login menggunakan password tersebut.</p>
             
             <div style="text-align: center;">
-                <a href="{{ url('/login') }}" class="button" style="color: #ffffff;">Login Sekarang</a>
+                <a href="{{ url('/login') }}" class="button">Login Sekarang</a>
             </div>
         </div>
         <div class="footer">

@@ -9,9 +9,8 @@ use App\Models\Divisi;
 use App\Models\Karyawan;
 use App\Models\Shift;
 use Illuminate\Support\Facades\DB;
-use App\Jobs\KirimEmailAkun;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class ManajemenSistemController extends Controller
 {
@@ -20,7 +19,10 @@ class ManajemenSistemController extends Controller
      */
     public function index()
     {
-        $karyawan = Karyawan::with(['divisi', 'shift'])->latest()->paginate(15);
+        $karyawan = Karyawan::with(['divisi', 'shift'])
+            ->latest()
+            ->paginate(15);
+
         return view('hrga.manajemen.karyawan.index', compact('karyawan'));
     }
 
@@ -31,6 +33,7 @@ class ManajemenSistemController extends Controller
     {
         $divisi = Divisi::where('is_active', true)->get();
         $shifts = Shift::where('is_active', true)->get();
+
         return view('hrga.manajemen.karyawan.create', compact('divisi', 'shifts'));
     }
 
@@ -39,23 +42,33 @@ class ManajemenSistemController extends Controller
      */
     public function store(DaftarKaryawanRequest $request)
     {
-        $validatedData = $request->validated();
-        $password = Str::random(8);
+        // Tambahkan logging di awal proses
+        Log::info('[WEB] Memulai proses pembuatan karyawan baru.');
 
-        $user = DB::transaction(function () use ($validatedData, $password) {
+        $validatedData = $request->validated();
+
+        $user = DB::transaction(function () use ($validatedData) {
             $user = \App\Models\User::create([
-                'name' => $validatedData['nama_lengkap'],
-                'email' => $validatedData['email'],
-                'password' => Hash::make($password)
+                'name'     => $validatedData['nama_lengkap'],
+                'email'    => $validatedData['email'],
+                'password' => Hash::make($validatedData['password']),
             ]);
             $user->assignRole('karyawan');
-            $karyawan = $user->karyawan()->create($validatedData);
+
+            $user->karyawan()->create($validatedData);
+
+            // Logging setelah simpan user & profil karyawan
+            Log::info('[WEB] User dan profil karyawan berhasil disimpan ke database.', [
+                'user_id' => $user->id,
+                'email'   => $user->email,
+            ]);
+
             return $user;
         });
 
-        KirimEmailAkun::dispatch($user, $password);
-
-        return redirect()->route('hrga.manajemen.karyawan.index')->with('success', 'Karyawan baru berhasil ditambahkan.');
+        return redirect()
+            ->route('hrga.manajemen.karyawan.index')
+            ->with('success', 'Karyawan baru berhasil ditambahkan.');
     }
 
     /**
@@ -73,6 +86,7 @@ class ManajemenSistemController extends Controller
     {
         $divisi = Divisi::where('is_active', true)->get();
         $shifts = Shift::where('is_active', true)->get();
+
         return view('hrga.manajemen.karyawan.edit', compact('karyawan', 'divisi', 'shifts'));
     }
 
@@ -85,13 +99,15 @@ class ManajemenSistemController extends Controller
 
         DB::transaction(function () use ($validatedData, $karyawan) {
             $karyawan->user->update([
-                'name' => $validatedData['nama_lengkap'],
+                'name'  => $validatedData['nama_lengkap'],
                 'email' => $validatedData['email'],
             ]);
             $karyawan->update($validatedData);
         });
-        
-        return redirect()->route('hrga.manajemen.karyawan.index')->with('success', 'Data karyawan berhasil diperbarui.');
+
+        return redirect()
+            ->route('hrga.manajemen.karyawan.index')
+            ->with('success', 'Data karyawan berhasil diperbarui.');
     }
 
     /**
@@ -103,9 +119,13 @@ class ManajemenSistemController extends Controller
             // Foreign key di database sudah diatur 'ON DELETE CASCADE',
             // jadi saat user dihapus, data karyawan juga akan terhapus.
             $karyawan->user->delete();
-            return redirect()->route('hrga.manajemen.karyawan.index')->with('success', 'Data karyawan berhasil dihapus.');
+
+            return redirect()
+                ->route('hrga.manajemen.karyawan.index')
+                ->with('success', 'Data karyawan berhasil dihapus.');
         } catch (\Exception $e) {
-            return back()->with('error', 'Gagal menghapus data karyawan. Error: ' . $e->getMessage());
+            return back()
+                ->with('error', 'Gagal menghapus data karyawan. Error: ' . $e->getMessage());
         }
     }
 }
