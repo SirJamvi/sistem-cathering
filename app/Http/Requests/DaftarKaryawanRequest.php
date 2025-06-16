@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rules\Password;
 
 class DaftarKaryawanRequest extends FormRequest
 {
@@ -28,6 +29,7 @@ class DaftarKaryawanRequest extends FormRequest
             'shift_id' => 'required|exists:shifts,id',
             'tanggal_bergabung' => 'required|date',
             'phone' => 'nullable|string|max:20',
+            'password' => ['required', 'confirmed', Password::min(8)],
         ];
     }
 }

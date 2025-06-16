@@ -33,11 +33,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('karyawan')->middleware('role:karyawan')->group(function () {
         Route::get('/profil', [KaryawanController::class, 'profil']);
         Route::get('/status-konsumsi', [KaryawanController::class, 'statusKonsumsi']);
-        
-        // Menerapkan middleware untuk cek jam makan dan pencegah screenshot
-        Route::middleware(['shift.aktif', 'prevent.screenshot'])->group(function() {
+
+        // Beri tanda komentar pada baris di bawah ini untuk sementara
+        // Route::middleware(['shift.aktif', 'prevent.screenshot'])->group(function() {
             Route::post('/qr-code/generate', [QrCodeController::class, 'generate']);
-        });
+        // });
     });
 
     // === RUTE KHUSUS KOKI ===

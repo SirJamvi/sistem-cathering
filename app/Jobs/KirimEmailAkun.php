@@ -16,27 +16,44 @@ class KirimEmailAkun implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    protected User $user;
+    protected string $password;
+
     /**
      * Create a new job instance.
      */
-    public function __construct(
-        protected User $user,
-        protected string $password
-    ) {}
+    public function __construct(User $user, string $password)
+    {
+        $this->user = $user;
+        $this->password = $password;
+
+        // Log saat job dibuat dan masuk ke antrian
+        Log::info("Job KirimEmailAkun dibuat untuk user: {$this->user->email}");
+    }
 
     /**
      * Execute the job.
      */
     public function handle(): void
     {
-        try {
-            // Menggunakan Mailable yang sudah kita buat sebelumnya
-            $email = new KirimAkunKaryawan($this->user, $this->password);
-            Mail::to($this->user->email)->send($email);
+        // Log saat job mulai dieksekusi oleh worker (atau sync)
+        Log::info("--> Memulai eksekusi job KirimEmailAkun untuk: {$this->user->email}");
 
-            Log::info('Email akun berhasil dikirim ke: ' . $this->user->email);
+        try {
+            // Membuat instance Mailable
+            $email = new KirimAkunKaryawan($this->user, $this->password);
+            Log::info("    |-- Mailable KirimAkunKaryawan berhasil dibuat.");
+
+            // Mengirim email
+            Mail::to($this->user->email)->send($email);
+            Log::info("    |-- Perintah Mail::send() berhasil dieksekusi.");
+
+            // Log sukses akhir
+            Log::info("--> [SUCCESS] Eksekusi job KirimEmailAkun selesai untuk: {$this->user->email}");
+
         } catch (\Exception $e) {
-            Log::error('Gagal mengirim email akun ke: ' . $this->user->email . '. Error: ' . $e->getMessage());
+            // Log jika terjadi error saat pengiriman
+            Log::error("--> [FAILED] Gagal mengirim email akun ke: {$this->user->email}. Error: {$e->getMessage()}");
         }
     }
 }

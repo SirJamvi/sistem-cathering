@@ -29,7 +29,7 @@
                                 <input type="email" class="form-control @error('email') is-invalid @enderror" id="email" name="email" value="{{ old('email') }}" required>
                                 @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
-                             <div class="col-md-6 mb-3">
+                            <div class="col-md-6 mb-3">
                                 <label for="phone" class="form-label">Nomor Telepon</label>
                                 <input type="tel" class="form-control @error('phone') is-invalid @enderror" id="phone" name="phone" value="{{ old('phone') }}">
                                 @error('phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
@@ -59,6 +59,18 @@
                                 <input type="date" class="form-control @error('tanggal_bergabung') is-invalid @enderror" id="tanggal_bergabung" name="tanggal_bergabung" value="{{ old('tanggal_bergabung', date('Y-m-d')) }}" required>
                                 @error('tanggal_bergabung') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
+
+                            <!-- ✅ TAMBAHKAN DUA INPUT INI -->
+                            <div class="col-md-6 mb-3">
+                                <label for="password" class="form-label">Password</label>
+                                <input type="password" class="form-control @error('password') is-invalid @enderror" id="password" name="password" required>
+                                @error('password') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="password_confirmation" class="form-label">Konfirmasi Password</label>
+                                <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" required>
+                            </div>
+
                         </div>
                         <div class="d-flex justify-content-end">
                             <a href="{{ route('hrga.manajemen.karyawan.index') }}" class="btn btn-secondary me-2">Batal</a>

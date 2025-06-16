@@ -91,205 +91,196 @@ class DashboardKokiController extends Controller
 
     // Proses scan QR Code otomatis (dengan debugging lengkap)
     public function prosesScan(Request $request)
-    {
+{
+    try {
+        Log::info('Proses scan dimulai', [
+            'qr_token' => $request->input('qr_token'),
+            'user_id' => Auth::id(),
+            'timestamp' => now()->toDateTimeString()
+        ]);
+
+        $request->validate([
+            'qr_token' => 'required|string'
+        ]);
+
+        $qrToken = $request->input('qr_token');
+        
+        $qr = QrCodeDinamis::where('qr_token', $qrToken)
+            ->with('karyawan.divisi')
+            ->first();
+
+        if (!$qr) {
+            Log::warning('QR Code tidak ditemukan', ['qr_token' => $qrToken]);
+            return response()->json([
+                'success' => false,
+                'message' => 'QR Code tidak valid atau tidak ditemukan.'
+            ], 404);
+        }
+
+        if ($qr->is_used) {
+            Log::warning('QR Code sudah digunakan', [
+                'qr_token' => $qrToken,
+                'used_at' => $qr->used_at
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'QR Code sudah pernah digunakan pada ' . Carbon::parse($qr->used_at)->format('d/m/Y H:i')
+            ], 409);
+        }
+
+        if (Carbon::now()->greaterThan($qr->expired_at)) {
+            Log::warning('QR Code kedaluwarsa', [
+                'qr_token' => $qrToken,
+                'expired_at' => $qr->expired_at
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'QR Code sudah kedaluwarsa pada ' . Carbon::parse($qr->expired_at)->format('d/m/Y H:i')
+            ], 410);
+        }
+
+        $koki = Auth::user()->koki;
+        $karyawan = $qr->karyawan;
+
+        if (!$karyawan) {
+            Log::error('Karyawan tidak ditemukan untuk QR', ['qr_id' => $qr->id]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Data karyawan tidak ditemukan.'
+            ], 404);
+        }
+
+        $shiftAktif = $this->getShiftAktif();
+        if (!$shiftAktif) {
+            Log::warning('Tidak ada shift aktif');
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada shift yang aktif saat ini.'
+            ], 403);
+        }
+
+        if ($karyawan->shift_id != $shiftAktif->id) {
+            Log::warning('Shift tidak sesuai', [
+                'karyawan_shift' => $karyawan->shift_id,
+                'shift_aktif' => $shiftAktif->id,
+                'karyawan' => $karyawan->nama_lengkap
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Shift karyawan tidak sesuai dengan shift aktif.'
+            ], 403);
+        }
+
+        $pesanan = PesananMakanan::where('shift_id', $shiftAktif->id)
+            ->whereDate('tanggal_pesanan', Carbon::today())
+            ->first();
+
+        if (!$pesanan) {
+            Log::warning('Pesanan tidak ditemukan', [
+                'shift_id' => $shiftAktif->id,
+                'tanggal' => Carbon::today()->toDateString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Pesanan untuk shift ini tidak ditemukan hari ini.'
+            ], 404);
+        }
+
+        $sudahAmbil = DistribusiMakanan::where('pesanan_makanan_id', $pesanan->id)
+            ->where('karyawan_id', $karyawan->id)
+            ->first();
+
+        if ($sudahAmbil) {
+            Log::warning('Karyawan sudah mengambil', [
+                'karyawan' => $karyawan->nama_lengkap,
+                'waktu_pengambilan' => $sudahAmbil->waktu_pengambilan
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Karyawan sudah mengambil jatah makan pada ' . 
+                            Carbon::parse($sudahAmbil->waktu_pengambilan)->format('d/m/Y H:i')
+            ], 409);
+        }
+
+        DB::beginTransaction();
         try {
-            // Log semua data yang masuk
-            Log::info('Proses scan dimulai', [
-                'qr_token' => $request->input('qr_token'),
-                'user_id' => Auth::id(),
-                'timestamp' => now()->toDateTimeString()
+            $qr->update([
+                'is_used' => true, 
+                'used_at' => Carbon::now()
             ]);
 
-            // Validasi input QR token
-            $request->validate([
-                'qr_token' => 'required|string'
+            $distribusi = DistribusiMakanan::create([
+                'pesanan_makanan_id' => $pesanan->id,
+                'karyawan_id'        => $karyawan->id,
+                'koki_id'            => $koki->id,
+                'qr_code_dinamis_id' => $qr->id,
+                'waktu_pengambilan'  => Carbon::now(),
+                'status_distribusi'  => 'berhasil',
             ]);
 
-            $qrToken = $request->input('qr_token');
-            
-            // Cari QR Code
-            $qr = QrCodeDinamis::where('qr_token', $qrToken)
-                ->with('karyawan.divisi')
-                ->first();
+            // PERBAIKAN: Menambahkan qr_token_scanned yang sebelumnya missing
+            LogScanQr::create([
+    'karyawan_id'        => $karyawan->id,
+    'koki_id'            => $koki->id,
+    'qr_code_dinamis_id' => $qr->id,
+    'qr_token_scanned'   => $qr->qr_token,
+    'waktu_scan'         => Carbon::now(), // Pastikan ini diisi
+    'hasil_scan'         => 'berhasil',
+    'updated_at'         => Carbon::now(), // opsional
+    'created_at'         => Carbon::now()  // opsional
+]);
 
-            if (!$qr) {
-                Log::warning('QR Code tidak ditemukan', ['qr_token' => $qrToken]);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'QR Code tidak valid atau tidak ditemukan.'
-                ], 404);
-            }
+            DB::commit();
 
-            // Cek apakah QR sudah digunakan
-            if ($qr->is_used) {
-                Log::warning('QR Code sudah digunakan', [
-                    'qr_token' => $qrToken,
-                    'used_at' => $qr->used_at
-                ]);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'QR Code sudah pernah digunakan pada ' . Carbon::parse($qr->used_at)->format('d/m/Y H:i')
-                ], 409);
-            }
+            Log::info('Scan berhasil', [
+                'karyawan' => $karyawan->nama_lengkap,
+                'koki' => $koki->nama_lengkap,
+                'distribusi_id' => $distribusi->id
+            ]);
 
-            // Cek apakah QR sudah kedaluwarsa
-            if (Carbon::now()->greaterThan($qr->expired_at)) {
-                Log::warning('QR Code kedaluwarsa', [
-                    'qr_token' => $qrToken,
-                    'expired_at' => $qr->expired_at
-                ]);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'QR Code sudah kedaluwarsa pada ' . Carbon::parse($qr->expired_at)->format('d/m/Y H:i')
-                ], 410);
-            }
-
-            $koki = Auth::user()->koki;
-            $karyawan = $qr->karyawan;
-
-            // Validasi karyawan exists
-            if (!$karyawan) {
-                Log::error('Karyawan tidak ditemukan untuk QR', ['qr_id' => $qr->id]);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Data karyawan tidak ditemukan.'
-                ], 404);
-            }
-
-            // Cek shift aktif
-            $shiftAktif = $this->getShiftAktif();
-            if (!$shiftAktif) {
-                Log::warning('Tidak ada shift aktif');
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Tidak ada shift yang aktif saat ini.'
-                ], 403);
-            }
-
-            // Validasi shift karyawan
-            if ($karyawan->shift_id != $shiftAktif->id) {
-                Log::warning('Shift tidak sesuai', [
-                    'karyawan_shift' => $karyawan->shift_id,
-                    'shift_aktif' => $shiftAktif->id,
-                    'karyawan' => $karyawan->nama_lengkap
-                ]);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Shift karyawan tidak sesuai dengan shift aktif.'
-                ], 403);
-            }
-
-            // Cek pesanan hari ini
-            $pesanan = PesananMakanan::where('shift_id', $shiftAktif->id)
-                ->whereDate('tanggal_pesanan', Carbon::today())
-                ->first();
-
-            if (!$pesanan) {
-                Log::warning('Pesanan tidak ditemukan', [
-                    'shift_id' => $shiftAktif->id,
-                    'tanggal' => Carbon::today()->toDateString()
-                ]);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Pesanan untuk shift ini tidak ditemukan hari ini.'
-                ], 404);
-            }
-
-            // Cek apakah karyawan sudah mengambil
-            $sudahAmbil = DistribusiMakanan::where('pesanan_makanan_id', $pesanan->id)
-                ->where('karyawan_id', $karyawan->id)
-                ->first();
-
-            if ($sudahAmbil) {
-                Log::warning('Karyawan sudah mengambil', [
-                    'karyawan' => $karyawan->nama_lengkap,
-                    'waktu_pengambilan' => $sudahAmbil->waktu_pengambilan
-                ]);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Karyawan sudah mengambil jatah makan pada ' . 
-                                Carbon::parse($sudahAmbil->waktu_pengambilan)->format('d/m/Y H:i')
-                ], 409);
-            }
-
-            // Transaksi penyimpanan dengan error handling
-            DB::beginTransaction();
-            try {
-                $qr->update([
-                    'is_used' => true, 
-                    'used_at' => Carbon::now()
-                ]);
-
-                $distribusi = DistribusiMakanan::create([
-                    'pesanan_makanan_id' => $pesanan->id,
-                    'karyawan_id'        => $karyawan->id,
-                    'koki_id'            => $koki->id,
-                    'qr_code_dinamis_id' => $qr->id,
-                    'waktu_pengambilan'  => Carbon::now(),
-                    'status_distribusi'  => 'berhasil',
-                ]);
-
-                LogScanQr::create([
-                    'karyawan_id'        => $karyawan->id,
-                    'koki_id'            => $koki->id,
-                    'qr_code_dinamis_id' => $qr->id,
-                    'qr_token_scanned'   => $qr->qr_token,
-                    'waktu_scan'         => Carbon::now(),
-                    'hasil_scan'         => 'berhasil',
-                ]);
-
-                DB::commit();
-
-                Log::info('Scan berhasil', [
-                    'karyawan' => $karyawan->nama_lengkap,
-                    'koki' => $koki->nama_lengkap,
-                    'distribusi_id' => $distribusi->id
-                ]);
-
-                // Respons sukses
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Validasi Berhasil',
-                    'karyawan' => [
-                        'id'     => $karyawan->id,
-                        'nama'   => $karyawan->nama_lengkap,
-                        'divisi' => $karyawan->divisi->nama_divisi ?? 'N/A',
-                    ],
-                ]);
-
-            } catch (\Exception $e) {
-                DB::rollBack();
-                Log::error('Error saat menyimpan distribusi', [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-                
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Terjadi kesalahan saat menyimpan data.'
-                ], 500);
-            }
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::warning('Validasi gagal', ['errors' => $e->errors()]);
             return response()->json([
-                'success' => false,
-                'message' => 'Data tidak valid: ' . implode(', ', $e->validator->errors()->all())
-            ], 422);
-            
+                'success' => true,
+                'message' => 'Validasi Berhasil',
+                'karyawan' => [
+                    'id'     => $karyawan->id,
+                    'nama'   => $karyawan->nama_lengkap,
+                    'divisi' => $karyawan->divisi->nama_divisi ?? 'N/A',
+                ],
+            ]);
+
         } catch (\Exception $e) {
-            Log::error('Error tidak terduga dalam proses scan', [
+            DB::rollBack();
+            Log::error('Error saat menyimpan distribusi', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'trace' => $e->getTraceAsString()
             ]);
             
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan sistem. Silakan coba lagi.'
+                'message' => 'Terjadi kesalahan saat menyimpan data.'
             ], 500);
         }
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        Log::warning('Validasi gagal', ['errors' => $e->errors()]);
+        return response()->json([
+            'success' => false,
+            'message' => 'Data tidak valid: ' . implode(', ', $e->validator->errors()->all())
+        ], 422);
+        
+    } catch (\Exception $e) {
+        Log::error('Error tidak terduga dalam proses scan', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'request' => $request->all()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Terjadi kesalahan sistem. Silakan coba lagi.'
+        ], 500);
     }
+}
 
     // Test endpoint untuk debugging
     public function testQr(Request $request)

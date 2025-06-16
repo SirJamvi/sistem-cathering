@@ -13,17 +13,17 @@ class LogScanQr extends Model
     protected $table = 'log_scan_qrs';
 
     protected $fillable = [
-        'karyawan_id',
-        'koki_id',
-        'qr_code_dinamis_id',
-        'qr_token_scanned',
-        'waktu_scan',
-        'hasil_scan',
-        'pesan_error',
-        'detail_validasi',
-        'ip_scanner',
-        'device_info',
-    ];
+    'karyawan_id',
+    'koki_id',
+    'qr_code_dinamis_id',
+    'qr_token_scanned',
+    'waktu_scan', // Pastikan ini ada
+    'hasil_scan',
+    'pesan_error',
+    'detail_validasi',
+    'ip_scanner',
+    'device_info'
+];
 
     protected $casts = [
         'waktu_scan' => 'datetime',
