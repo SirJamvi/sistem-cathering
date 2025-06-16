@@ -35,9 +35,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/status-konsumsi', [KaryawanController::class, 'statusKonsumsi']);
 
         // Beri tanda komentar pada baris di bawah ini untuk sementara
-        // Route::middleware(['shift.aktif', 'prevent.screenshot'])->group(function() {
+        Route::middleware(['shift.aktif', 'prevent.screenshot'])->group(function() {
             Route::post('/qr-code/generate', [QrCodeController::class, 'generate']);
-        // });
+        });
     });
 
     // === RUTE KHUSUS KOKI ===
