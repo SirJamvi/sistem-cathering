@@ -2,145 +2,178 @@
 
 @section('title', 'Dashboard Koki')
 
+@section('page-header', 'Dashboard Koki')
+@section('page-icon', 'bi-speedometer2')
+
 @push('styles')
 <style>
-    #qr-reader {
-        width: 100%;
-        max-width: 500px;
-        border: 2px solid #dee2e6;
-        border-radius: 8px;
-        overflow: hidden;
+    /* Custom styles specific for this page */
+    .scan-result-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
     }
     
-    .debug-panel {
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 5px;
-        padding: 10px;
-        margin-bottom: 15px;
-        font-family: monospace;
-        font-size: 0.85em;
+    .karyawan-name {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #0e5fb4;
     }
     
-    .debug-panel.error {
-        background: #fff5f5;
-        border-color: #fed7d7;
-        color: #c53030;
+    .divisi-name {
+        font-size: 0.9rem;
+        color: #718096;
     }
     
-    .debug-panel.success {
-        background: #f0fff4;
-        border-color: #9ae6b4;
-        color: #2f855a;
+    .stat-card {
+        border-left: 4px solid #0e5fb4;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        border-left: 4px solid #d8d262;
+    }
+    
+    .stat-number {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #0e5fb4;
     }
 </style>
 @endpush
 
 @section('content')
 <div class="container">
-    <div class="row mb-3">
+    <!-- Header Section -->
+    <div class="row mb-4">
         <div class="col">
-            <h1 class="h3 mb-0">Validasi Makanan Karyawan</h1>
-            <p class="text-muted">Arahkan kamera pada QR Code karyawan.</p>
+            <h2 class="page-title">
+                <i class="bi bi-qr-code-scan"></i> Validasi Makanan Karyawan
+            </h2>
+            <p class="text-muted">Arahkan kamera pada QR Code karyawan untuk validasi pengambilan makanan</p>
         </div>
         <div class="col-auto">
-            <button id="toggle-debug" class="btn btn-outline-secondary btn-sm">
+            <button id="toggle-debug" class="btn btn-outline-warning">
                 <i class="bi bi-bug"></i> Debug Mode
             </button>
         </div>
     </div>
 
-    {{-- Debug Panel --}}
+    <!-- Debug Panel -->
     <div id="debug-panel" class="debug-panel" style="display: none;">
-        <strong>Debug Information:</strong>
-        <div id="debug-content">Menunggu scan...</div>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong>Debug Information:</strong>
+            <button id="clear-debug" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-trash"></i> Clear
+            </button>
+        </div>
+        <div id="debug-content" class="font-monospace small">Menunggu scan...</div>
     </div>
 
     <div class="row g-4">
-        {{-- KOLOM UTAMA UNTUK SCANNER --}}
+        <!-- Scanner Column -->
         <div class="col-lg-7">
-            <div class="card shadow-sm">
+            <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
-                    {{-- Status Kamera --}}
-                    <div id="camera-status" class="alert alert-info mb-3">
-                        <i class="bi bi-camera-video"></i> Memuat kamera...
+                    <!-- Camera Status -->
+                    <div id="camera-status" class="alert alert-info d-flex align-items-center">
+                        <i class="bi bi-camera-video"></i>
+                        <span class="ms-2">Memuat kamera...</span>
                     </div>
 
-                    {{-- Area Scanner --}}
+                    <!-- Scanner Area -->
                     <div id="qr-reader" class="mx-auto mb-3"></div>
-                    <div id="qr-reader-results" class="text-center"></div>
-
-                    {{-- Form tersembunyi --}}
-                    <form id="scan-form" class="d-none">
-                        @csrf
-                        <input type="text" class="form-control" id="qr_token" name="qr_token" autocomplete="off">
-                        <button type="button" id="manual-scan" class="btn btn-secondary mt-2">Test Manual Scan</button>
-                    </form>
-
-                    {{-- Manual Input untuk Testing --}}
-                    <div id="manual-input" class="mt-3" style="display: none;">
-                        <hr>
-                        <h6>Manual Input (untuk testing):</h6>
+                    
+                    <!-- Manual Input for Testing -->
+                    <div id="manual-input" class="mt-4 p-3 rounded-3" style="display: none;">
+                        <h5 class="mb-3"><i class="bi bi-keyboard"></i> Manual Input</h5>
                         <div class="input-group">
                             <input type="text" id="manual-token" class="form-control" placeholder="Masukkan QR Token...">
-                            <button class="btn btn-outline-primary" id="btn-manual-test">Test</button>
+                            <button class="btn btn-warning" id="btn-manual-test">
+                                <i class="bi bi-send-check"></i> Test
+                            </button>
                         </div>
                     </div>
 
-                    <hr>
-
-                    <h5 class="mb-3">Hasil Scan Terakhir:</h5>
-                    <div id="scan-result" class="alert alert-secondary" role="alert" style="min-height: 120px;">
-                        <div id="result-content" class="text-center p-3">Menunggu scan...</div>
+                    <!-- Scan Result -->
+                    <div class="mt-4">
+                        <h5 class="d-flex align-items-center">
+                            <i class="bi bi-clock-history me-2"></i> Hasil Scan Terakhir
+                        </h5>
+                        <div id="scan-result" class="alert alert-secondary mt-2" role="alert">
+                            <div id="result-content" class="text-center py-3">
+                                <div class="scan-result-icon">
+                                    <i class="bi bi-hourglass-split text-muted"></i>
+                                </div>
+                                <p class="mb-0">Menunggu scan QR Code...</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        {{-- KOLOM UNTUK INFORMASI & MONITORING --}}
+        <!-- Info Column -->
         <div class="col-lg-5">
-            <div class="card shadow-sm mb-4">
-                <div class="card-header"><h5 class="mb-0">Informasi Shift Aktif</h5></div>
-                <div class="card-body">
+            <!-- Shift Info -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-calendar-event"></i> Shift Aktif</h5>
+                </div>
+                <div class="card-body text-center">
                     @if($shiftAktif)
-                        <h3 class="text-center">{{ $shiftAktif->nama_shift }}</h3>
-                        <p class="text-center text-muted mb-0">({{ $shiftAktif->jam_mulai }} - {{ $shiftAktif->jam_selesai }})</p>
+                        <h3 class="text-primary">{{ $shiftAktif->nama_shift }}</h3>
+                        <p class="text-muted mb-0">
+                            <i class="bi bi-clock"></i> {{ $shiftAktif->jam_mulai }} - {{ $shiftAktif->jam_selesai }}
+                        </p>
                     @else
-                        <p class="text-center text-danger mb-0">Tidak ada shift yang aktif saat ini.</p>
+                        <div class="alert alert-warning mb-0">
+                            <i class="bi bi-exclamation-triangle"></i> Tidak ada shift aktif
+                        </div>
                     @endif
                 </div>
             </div>
             
-            <div class="card shadow-sm">
-                <div class="card-header"><h5 class="mb-0">Statistik Porsi</h5></div>
+            <!-- Statistik Card -->
+            <div class="card shadow-sm border-0 mt-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-clipboard-data"></i> Statistik Porsi</h5>
+                </div>
                 <div class="card-body">
                     <ul class="list-group list-group-flush">
                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                            Total Porsi Dipesan
+                            <span><i class="bi bi-cart-check text-primary"></i> Total Dipesan</span>
                             <span id="total-dipesan" class="badge bg-primary rounded-pill fs-6">{{ $totalDipesan }}</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                            Sudah Diambil
+                            <span><i class="bi bi-check-circle text-success"></i> Sudah Diambil</span>
                             <span id="total-diambil" class="badge bg-success rounded-pill fs-6">{{ $totalDiambil }}</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between align-items-center fw-bold">
-                            Sisa Porsi
+                            <span><i class="bi bi-hourglass-split text-dark"></i> Sisa Porsi</span>
                             <span id="sisa-porsi" class="badge bg-dark rounded-pill fs-6">{{ $totalDipesan - $totalDiambil }}</span>
                         </li>
                     </ul>
                 </div>
             </div>
             
-            <div class="card shadow-sm mt-4">
-                <div class="card-header"><h5 class="mb-0">Karyawan Belum Mengambil</h5></div>
+            <!-- Karyawan Belum Ambil -->
+            <div class="card shadow-sm border-0 mt-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-people"></i> Belum Mengambil</h5>
+                </div>
                 <div id="sisa-karyawan-list" class="list-group list-group-flush" style="max-height: 300px; overflow-y: auto;">
                     @forelse ($sisaKaryawan as $karyawan)
-                        <a href="#" class="list-group-item list-group-item-action" data-karyawan-id="{{ $karyawan->id }}">
-                            {{ $karyawan->nama_lengkap }} ({{ $karyawan->divisi->nama_divisi ?? 'N/A' }})
+                        <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" data-karyawan-id="{{ $karyawan->id }}">
+                            <div>
+                                <span class="d-block fw-medium">{{ $karyawan->nama_lengkap }}</span>
+                                <small class="text-muted">{{ $karyawan->divisi->nama_divisi ?? 'N/A' }}</small>
+                            </div>
+                            <i class="bi bi-chevron-right text-muted"></i>
                         </a>
                     @empty
-                        <div id="sisa-karyawan-empty" class="list-group-item text-center text-muted">
-                            Semua karyawan telah mengambil makanan.
+                        <div id="sisa-karyawan-empty" class="list-group-item text-center py-4">
+                            <i class="bi bi-check-circle-fill text-success" style="font-size: 2rem;"></i>
+                            <p class="mt-2 mb-0">Semua karyawan telah mengambil makanan</p>
                         </div>
                     @endforelse
                 </div>
