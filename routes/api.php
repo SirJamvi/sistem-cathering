@@ -33,6 +33,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('karyawan')->middleware('role:karyawan')->group(function () {
         Route::get('/profil', [KaryawanController::class, 'profil']);
         Route::get('/status-konsumsi', [KaryawanController::class, 'statusKonsumsi']);
+         Route::get('/status-konsumsi-hari-ini', [KaryawanController::class, 'statusKonsumsiHariIni']);
+    Route::get('/menu-hari-ini', [KaryawanController::class, 'menuHariIni']);
 
         // Beri tanda komentar pada baris di bawah ini untuk sementara
         Route::middleware(['shift.aktif', 'prevent.screenshot'])->group(function() {
