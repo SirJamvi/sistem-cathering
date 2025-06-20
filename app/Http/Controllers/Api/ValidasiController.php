@@ -17,15 +17,29 @@ class ValidasiController extends Controller
      * Mengambil daftar pesanan yang memerlukan validasi fisik.
      */
     public function listPesananUntukValidasi()
-    {
-        $pesanan = PesananMakanan::whereDoesntHave('validasiFisik')
-            ->whereIn('status_pesanan', ['dikirim', 'diterima'])
-            ->with('vendor')
-            ->latest()
-            ->get();
-            
-        return response()->json($pesanan);
-    }
+{
+    $pesanan = PesananMakanan::whereDoesntHave('validasiFisik')
+        // Ganti 'status' di Ionic dengan 'status_pesanan' yang ada di database
+        ->whereIn('status_pesanan', ['dikirim']) 
+        ->with(['vendor', 'shift']) // <-- Muat vendor DAN shift
+        ->latest()
+        ->get();
+        
+    // Transformasi data untuk menyamakan nama kolom
+    $pesanan->transform(function ($item) {
+        $item->status = $item->status_pesanan; 
+        $item->jumlah_pesanan = $item->jumlah_porsi_dipesan;
+        unset($item->status_pesanan);
+        unset($item->jumlah_porsi_dipesan);
+        if ($item->catatan_pesanan) {
+            $item->menu = $item->catatan_pesanan;
+            unset($item->catatan_pesanan);
+        }
+        return $item;
+    });
+        
+    return response()->json($pesanan);
+}
     
     /**
      * Menyimpan data hasil validasi fisik dari HRGA.
